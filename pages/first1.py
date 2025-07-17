@@ -1,23 +1,23 @@
 import streamlit as st
 import pandas as pd
 import folium
-from folium import Circle
-from streamlit.components.v1 import html
-import re
+from streamlit_folium import st_folium
 
-# 제목
-st.title("2025년 5월 기준 연령별 인구 현황")
+# Streamlit 페이지 설정
+st.set_page_config(page_title="상위 5개 행정구역 인구 지도", page_icon="🗺️", layout="wide")
 
-# CSV 파일 로딩
+st.title("🗺️ 상위 5개 행정구역 인구수 지도 시각화")
+
+# CSV 파일 읽기
 df = pd.read_csv("202505_202505_연령별인구현황_월간.csv", encoding='euc-kr')
 
-# 괄호 제거 (행정구역명 정리)
-df['행정구역'] = df['행정구역'].apply(lambda x: re.sub(r'\(.*\)', '', x).strip())
+# 행정구역 열에서 괄호 안 숫자 제거
+df['행정구역'] = df['행정구역'].str.replace(r"\s*\(\d+\)", "", regex=True).str.strip()
 
-# 총인구수 정리
-df['총인구수'] = df['2025년05월_계_총인구수'].str.replace(',', '', regex=False).astype(int)
+# 인구수 전처리
+df['총인구수'] = df['2025년05월_계_총인구수'].str.replace(',', '').astype(int)
 
-# 연령 관련 열 추출 및 이름 정리
+# 연령별 컬럼 전처리
 age_columns = [col for col in df.columns if col.startswith('2025년05월_계_') and ('세' in col or '100세 이상' in col)]
 new_columns = []
 for col in age_columns:
@@ -29,67 +29,42 @@ for col in age_columns:
 df_age = df[['행정구역', '총인구수'] + age_columns].copy()
 df_age.columns = ['행정구역', '총인구수'] + new_columns
 
-# 총인구수 기준 상위 5개 행정구역
+# 상위 5개 행정구역 추출
 top5_df = df_age.sort_values(by='총인구수', ascending=False).head(5)
 
-# 위도 경도 정보 매핑 (직접 지정)
-location_dict = {
-    '서울특별시': [37.5665, 126.9780],
-    '부산광역시': [35.1796, 129.0756],
-    '인천광역시': [37.4563, 126.7052],
-    '대구광역시': [35.8722, 128.6025],
-    '대전광역시': [36.3504, 127.3845],
-    '광주광역시': [35.1595, 126.8526],
-    '울산광역시': [35.5384, 129.3114],
-    '경기도 수원시': [37.2636, 127.0286],
-    '경상북도 포항시': [36.0190, 129.3435],
-    '전라북도 전주시': [35.8242, 127.1479],
-    '충청남도 천안시': [36.8151, 127.1139],
-    '강원도 춘천시': [37.8813, 127.7298],
+# 원 표시할 좌표 (행정구역명 수정 후 사용)
+region_coords = {
+    "경기도": [37.4138, 127.5183],
+    "서울특별시": [37.5665, 126.9780],
+    "부산광역시": [35.1796, 129.0756],
+    "경상남도": [35.4606, 128.2132],
+    "인천광역시": [37.4563, 126.7052]
 }
 
-# 위도/경도 추가
-top5_df['위도'] = top5_df['행정구역'].apply(lambda x: location_dict.get(x, [None, None])[0])
-top5_df['경도'] = top5_df['행정구역'].apply(lambda x: location_dict.get(x, [None, None])[1])
+# 지도 생성
+m = folium.Map(location=[36.5, 127.5], zoom_start=7)
 
-# 지도 표시
-st.subheader("🗺️ 상위 5개 행정구역 위치 (Folium 지도)")
-
-# 지도 중심 설정
-center_lat = top5_df['위도'].mean()
-center_lon = top5_df['경도'].mean()
-m = folium.Map(location=[center_lat, center_lon], zoom_start=7)
-
-# 지도에 핑크색 반투명 원 추가
+# 크고 선명한 원(circle) 추가
 for _, row in top5_df.iterrows():
-    if pd.notnull(row['위도']) and pd.notnull(row['경도']):
-        Circle(
-            location=[row['위도'], row['경도']],
-            radius=15000,
-            color='pink',
+    region = row['행정구역']
+    pop = row['총인구수']
+    coords = region_coords.get(region)
+    if coords:
+        folium.Circle(
+            location=coords,
+            radius=int(pop) / 300,   # 원 크기 조정 (필요 시 /15 ~ /30 사이에서 조절)
+            color='Deeppink',
             fill=True,
-            fill_color='pink',
-            fill_opacity=0.5,
-            popup=f"{row['행정구역']}<br>총인구수: {row['총인구수']:,}"
+            fill_color='Lightpink',
+            fill_opacity=0.6,       # 불투명하게 표시
+            popup=f"{region} : {pop:,}명",
+            tooltip=region
         ).add_to(m)
 
 # 지도 출력
-folium_html = m._repr_html_()
-html(folium_html, height=500)
+st.subheader("🗺️ 지도에서 상위 5개 행정구역 인구수 확인")
+st_folium(m, width=900, height=600)
 
-# 원본 데이터 테이블
+# 원본 데이터도 출력
 st.subheader("📊 원본 데이터 (상위 5개 행정구역)")
-st.dataframe(top5_df[['행정구역', '총인구수']])
-
-# 선그래프 출력
-st.subheader("📈 상위 5개 행정구역 연령별 인구 변화")
-age_columns_only = top5_df.columns[2:-2]  # 마지막 2개는 위경도
-
-for index, row in top5_df.iterrows():
-    st.markdown(f"### {row['행정구역']}")
-    age_data = row[age_columns_only].astype(str).str.replace(',', '', regex=False).astype(int)
-    age_df = pd.DataFrame({
-        '연령': age_columns_only,
-        '인구수': age_data.values
-    }).set_index('연령')
-    st.line_chart(age_df)
+st.dataframe(top5_df)
