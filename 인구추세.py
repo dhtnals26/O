@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.title("연도별 주민등록 인구 현황 (시도별)")
+st.title("연도별 주민등록 인구 현황 (시도별, 막대그래프)")
 
 # CSV 불러오기
 try:
@@ -41,12 +41,12 @@ df = df.applymap(clean_num)
 st.subheader("원본 데이터 (전처리 후)")
 st.dataframe(df)
 
-# 각 시도별 그래프
-st.subheader("시도별 인구 변화")
+# 각 시도별 막대그래프
+st.subheader("시도별 인구 변화 (막대그래프)")
 for col in df.columns:
-    st.write(f"📈 {col}")
-    st.line_chart(df[[col]])
+    st.write(f"📊 {col}")
+    st.bar_chart(df[[col]])
 
-# 전체 시도 겹쳐 보기
-st.subheader("전체 시도 인구 변화 비교")
-st.line_chart(df)
+# 전체 시도 겹쳐보기
+st.subheader("전체 시도 인구 변화 비교 (막대그래프)")
+st.bar_chart(df)
