@@ -5,8 +5,8 @@ import pandas as pd
 st.set_page_config(page_title="지역별 인구 및 세대 변화", layout="wide")
 st.title("📊 지역별 연도별 총인구수 및 세대수 변화")
 
-# 파일 경로 (업로드 없이 직접 사용)
-file_path = "/mnt/data/200912_201812_주민등록인구및세대현황_연간.csv"
+# CSV 파일 경로 (현재 디렉터리에 있다고 가정)
+file_path = "200912_201812_주민등록인구및세대현황_연간.csv"
 
 try:
     # 데이터 불러오기
@@ -71,5 +71,7 @@ try:
     앞으로 **주거·복지 정책의 변화**가 필요함을 보여줍니다.
     """)
 
+except FileNotFoundError:
+    st.error(f"CSV 파일이 경로에 존재하지 않습니다: {file_path}")
 except Exception as e:
     st.error(f"파일 처리 중 오류가 발생했습니다: {e}")
